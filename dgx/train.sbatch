@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=train
-#SBATCH --partition=mediumq
+#SBATCH --partition=longq
 #SBATCH --time=11:30:00
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=32G
@@ -11,6 +11,15 @@
 # conv_on_patches (train+eval) before starting conv_on_image
 # (DGX_GUIDE_nanovlm.md §4). Example:
 #   sbatch --export=ALL,SIZE=base,STRATEGY=conv_on_patches dgx/train.sbatch
+#
+# Partition is longq, not mediumq: this account (cs26d002) hit "Invalid
+# qos specification" / "Job's QOS not permitted to use this partition"
+# on mediumq on this exact cluster in the prior project on this account,
+# and only longq was ever confirmed working — even though
+# DGX_GUIDE_nanovlm.md §0 lists mediumq as available. --time=11:30:00 is
+# well inside longq's 48h cap either way, so this loses nothing if
+# mediumq does turn out to work now — flag it if you'd rather try mediumq
+# again and confirm it's actually granted.
 #
 # --mem/--time above are UNVALIDATED placeholders — DESIGN_DECISIONS.md §9,
 # size them from a real shortq timing on this repo's actual training code
