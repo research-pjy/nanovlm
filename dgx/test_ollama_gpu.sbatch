@@ -1,0 +1,37 @@
+#!/bin/bash
+#SBATCH --job-name=test-gpu-llm
+#SBATCH --partition=shortq
+#SBATCH --time=00:10:00
+#SBATCH --gres=gpu:a100:1
+#SBATCH --mem=16G
+#SBATCH --output=logs/nanovlm-test_ollama_gpu-%j.out
+#SBATCH --error=logs/nanovlm-test_ollama_gpu-%j.err
+#
+# shortq diagnostic — per DGX_GUIDE_nanovlm.md §6, run this fresh once and
+# confirm llama3:8b loads via the private GPU-capable server BEFORE
+# trusting the real 28K generate job to use it. Full GPU, not a MIG slice
+# (MIG slices are confirmed to hang Ollama-backed jobs — DGX_GUIDE_nanovlm.md §0).
+
+set -euo pipefail
+cd /scratch/cs26d002/repos/nanovlm
+mkdir -p logs
+source dgx/common.sh
+
+activate_env
+trap stop_private_ollama_server EXIT
+start_private_ollama_server
+
+echo "[test_ollama_gpu] timing one llama3:8b call..."
+START=$(date +%s.%N)
+curl -s http://127.0.0.1:${OLLAMA_PRIVATE_PORT}/api/generate -d '{
+  "model": "llama3:8b",
+  "prompt": "Say the word OK and nothing else.",
+  "stream": false
+}' | tee "logs/nanovlm-test_ollama_gpu-${SLURM_JOB_ID}.response.json"
+END=$(date +%s.%N)
+
+echo ""
+echo "[test_ollama_gpu] elapsed: $(echo "$END - $START" | bc) seconds"
+echo "[test_ollama_gpu] compare this against the ~34s/call steady-state figure in DGX_GUIDE_nanovlm.md §3 —"
+echo "[test_ollama_gpu] if this single (cold-start) call is wildly different, re-time after a few warmup calls"
+echo "[test_ollama_gpu] before trusting --time budgets derived from it (DESIGN_DECISIONS.md §9)."

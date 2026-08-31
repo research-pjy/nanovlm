@@ -1,0 +1,18 @@
+# Generated data / outputs — never round-trip through version control,
+# never get clobbered by a pull (DGX_GUIDE_nanovlm.md §0/§2).
+data/
+checkpoints/
+results/
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# OS / editor cruft
+.DS_Store
+*.swp

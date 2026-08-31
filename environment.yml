@@ -1,0 +1,19 @@
+# Matches the reused DGX conda env (DGX_GUIDE_nanovlm.md §1):
+#   /scratch/cs26d002/envs/dgx-research-test, PyTorch 2.6.0+cu118.
+# Only needed if that env has to be recreated from scratch — normally it's
+# reused as-is, no rebuild required.
+name: dgx-research-test
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - torch==2.6.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+      - tokenizers>=0.20
+      - pillow>=10
+      - numpy>=1.26
+      - pytest>=8
