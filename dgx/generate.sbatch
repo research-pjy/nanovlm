@@ -1,11 +1,18 @@
 #!/bin/bash
 #SBATCH --job-name=gen
 #SBATCH --partition=longq
+#SBATCH --qos=longq
 #SBATCH --time=47:30:00
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=32G
 #SBATCH --output=logs/nanovlm-generate-%j.out
 #SBATCH --error=logs/nanovlm-generate-%j.err
+#
+# --qos=longq is required explicitly alongside --partition=longq — see
+# train.sbatch's comment and DESIGN_DECISIONS.md §9: this account's
+# allowed QOS set only contains {longq, shortq} with no usable default,
+# so --partition alone was never sufficient and every earlier submission
+# attempt (mediumq, shortq, longq-with-no-qos) failed the same way.
 #
 # Stage 1 — generate. Self-chains internally: at ~34s/call steady-state
 # (DGX_GUIDE_nanovlm.md §3) 28,100 sequential Ollama calls is ~265h,

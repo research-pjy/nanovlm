@@ -228,21 +228,34 @@ raise these past the placeholder without running `dgx/test_ollama_gpu.sbatch`
 first; do not trust the placeholder for a real submission either.
 
 **Partition is `longq` everywhere, not `mediumq`/`shortq` as
-`DGX_GUIDE_nanovlm.md` §0 lists them.** Both `mediumq` (on `train.sbatch`/
-`evaluate.sbatch`) and `shortq` (on `test_ollama_gpu.sbatch`) failed with
+`DGX_GUIDE_nanovlm.md` §0 lists them — and `--qos=` must be set
+explicitly, `--partition` alone is not enough.** `mediumq`, then `shortq`,
+then even `longq` with no `--qos=` set all failed with
 `sbatch: error: Batch job submission failed: Invalid qos specification`
-for this account (cs26d002) when actually submitted — even though the
-guide lists all three as available. `longq` is the only partition with
-actual confirmed submission history for this account (matching this
-project's memory of the same error occurring for `mediumq` in the prior
-project on this cluster). Every `dgx/*.sbatch` script uses `--partition=longq`
-now, regardless of how short the job's own `--time` is — a short job on
-`longq` is fine, `--time` just caps how long *that job* can run, not how
-long it has to. If `sacctmgr show assoc where user=cs26d002
-format=account,partition,qos` ever confirms `shortq`/`mediumq` are
-actually granted, they can be switched back; until then, don't guess
-partition names from the guide doc without checking submission actually
-succeeds.
+for this account when actually submitted. Running
+`sacctmgr show assoc where user=cs26d002 format=account,partition,qos`
+gave the authoritative answer:
+
+```
+   Account  Partition                  QOS
+---------- ---------- --------------------
+   student                    longq,shortq
+```
+
+This account's Slurm account name is `student` (not `cs26d002`), it has no
+partition restriction, and its allowed QOS set is exactly `{longq,
+shortq}` with no usable default QOS — so any job that doesn't explicitly
+request `--qos=` gets assigned a default QOS outside that set and is
+rejected, *regardless of which `--partition` is named*. `mediumq` failed
+because it isn't in the allowed set at all (as either partition or QOS);
+`shortq` and the first `longq` attempt failed purely because `--qos=` was
+never set. Every `dgx/*.sbatch` script now sets both
+`--partition=longq` and `--qos=longq` together — matching QOS to
+partition — regardless of how short the job's own `--time` is; `--time`
+only caps how long that job may run, not how long it has to wait. If a
+job genuinely wants the short queue instead, `--partition=shortq
+--qos=shortq` (both set, matching) should work by the same logic; this
+hasn't been submitted yet, so treat it as unconfirmed until it is.
 
 ---
 

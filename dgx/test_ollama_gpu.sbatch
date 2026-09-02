@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=test-gpu-llm
 #SBATCH --partition=longq
+#SBATCH --qos=longq
 #SBATCH --time=00:10:00
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=16G
@@ -13,14 +14,14 @@
 # job to use it. Full GPU, not a MIG slice (MIG slices are confirmed to
 # hang Ollama-backed jobs — DGX_GUIDE_nanovlm.md §0).
 #
-# Partition is longq, not shortq: shortq submission failed with "Invalid
-# qos specification" for this account, same class of error mediumq hit
-# for train/evaluate (dgx/train.sbatch, dgx/evaluate.sbatch) — longq is
-# the only partition with actual confirmed history of working for
-# cs26d002 on this cluster, despite DGX_GUIDE_nanovlm.md §0 listing all
-# three as available. Run `sacctmgr show assoc where user=cs26d002
-# format=account,partition,qos` to get the authoritative list rather than
-# guessing partition names again — see DESIGN_DECISIONS.md §9.
+# Root cause of every "Invalid qos specification" failure so far (mediumq,
+# then shortq, then longq-with-no-qos) turned out to be the same thing:
+# `sacctmgr show assoc where user=cs26d002 format=account,partition,qos`
+# shows this account (Slurm account "student") has no default QOS in its
+# allowed set {longq, shortq} — --partition alone doesn't set --qos, so
+# without an explicit `--qos=` Slurm falls back to a default that isn't
+# permitted, regardless of which partition is named. Fix is `--qos=longq`
+# above, matching --partition. See DESIGN_DECISIONS.md §9.
 
 set -euo pipefail
 # Repo location isn't hardcoded — submit this with `sbatch dgx/test_ollama_gpu.sbatch`

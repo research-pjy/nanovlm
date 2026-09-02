@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=eval
 #SBATCH --partition=longq
+#SBATCH --qos=longq
 #SBATCH --time=03:00:00
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=16G
@@ -16,9 +17,9 @@
 # the NanoVLM checkpoint's own generation — full GPU, not a MIG slice, same
 # reasoning as generate.sbatch (DGX_GUIDE_nanovlm.md §0).
 #
-# Partition is longq, not mediumq — same reason as dgx/train.sbatch: this
-# account only ever had mediumq rejected with a QOS error on this cluster
-# in the prior project, longq was the one queue confirmed to work.
+# Partition is longq, and --qos=longq is required explicitly — see
+# train.sbatch's comment and DESIGN_DECISIONS.md §9 for why --partition
+# alone was never enough.
 #
 # --mem/--time above are UNVALIDATED placeholders — DESIGN_DECISIONS.md §9.
 
