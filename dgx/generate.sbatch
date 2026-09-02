@@ -4,7 +4,7 @@
 #SBATCH --qos=longq
 #SBATCH --time=47:30:00
 #SBATCH --gres=gpu:a100:1
-#SBATCH --mem=32G
+#SBATCH --mem=16G
 #SBATCH --output=logs/nanovlm-generate-%j.out
 #SBATCH --error=logs/nanovlm-generate-%j.err
 #
@@ -14,6 +14,16 @@
 # so --partition alone was never sufficient and every earlier submission
 # attempt (mediumq, shortq, longq-with-no-qos) failed the same way.
 #
+# --mem=16G, down from an earlier 32G placeholder: submitting at 32G left
+# this job PD with reason AssocGrpMemLimit (the "student" account's group
+# memory quota, shared across every user on that account, was already
+# spoken for). This job's workload is the same private-Ollama-server +
+# one-call-at-a-time pattern as test_ollama_gpu.sbatch, which already
+# succeeded at --mem=16G, so 16G is not a blind guess. If it's still PD
+# on AssocGrpMemLimit after this, the block is other users' jobs eating
+# the shared quota, not this job's own request — see DESIGN_DECISIONS.md
+# §9 for the diagnostic command to confirm the account's actual GrpTRES
+# cap rather than guessing further.
 # Stage 1 — generate. Self-chains internally: at ~34s/call steady-state
 # (DGX_GUIDE_nanovlm.md §3) 28,100 sequential Ollama calls is ~265h,
 # which cannot fit in one 48h longq job, so this script runs until close

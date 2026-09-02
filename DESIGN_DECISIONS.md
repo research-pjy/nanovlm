@@ -257,6 +257,22 @@ job genuinely wants the short queue instead, `--partition=shortq
 --qos=shortq` (both set, matching) should work by the same logic; this
 hasn't been submitted yet, so treat it as unconfirmed until it is.
 
+**`--mem=32G` on `generate.sbatch` caused a second, separate blocker:
+`squeue` showed the job PD with reason `AssocGrpMemLimit`** — the
+`student` account's group memory quota (shared across every user on that
+account, per the same `sacctmgr` output above — other pending jobs in
+`squeue` belonged to different usernames, meaning many users share this
+one account) was already spoken for by other users' jobs, so this job
+couldn't start regardless of GPU availability. Lowered `generate.sbatch`
+to `--mem=16G` — not a blind reduction, it matches `test_ollama_gpu.sbatch`,
+which already succeeded at `--mem=16G` running the same private-Ollama-
+server, one-call-at-a-time workload. If a job is still PD on
+`AssocGrpMemLimit` after this, that means other users' jobs are eating the
+shared quota, not this job's own request, and lowering `--mem` further
+won't fix it — confirm the account's actual cap first with
+`sacctmgr show assoc where account=student format=account,user,grptres,maxtresperjob`
+rather than guessing another number.
+
 ---
 
 ## 10. Storage / naming
