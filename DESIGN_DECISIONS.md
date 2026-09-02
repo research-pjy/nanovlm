@@ -216,16 +216,33 @@ Learning rate: `1e-3` (paper §2.3, fixed across all sizes).
 
 ---
 
-## 9. `--mem` / `--time` sbatch values
+## 9. `--mem` / `--time` sbatch values, and which partition is actually usable
 
-**Not filled in with real numbers** — `EXPERIMENT_GUIDE_encoder_ambiguity.md`
-§7 / `DGX_GUIDE_nanovlm.md` §6 both require these to come from a real timing
-measurement on *this* cluster, *this* repo's actual code, not inherited or
-guessed. The `dgx/*.sbatch` scripts in this repo carry placeholder values
-marked `# TODO(bench):` with the `shortq` diagnostic command to run first —
-filling these in requires actually running on `dgx1`, which this build
-session cannot do. Do not raise these past the placeholder without running
-that diagnostic; do not trust the placeholder for a real submission either.
+**`--mem`/`--time` not filled in with real numbers** —
+`EXPERIMENT_GUIDE_encoder_ambiguity.md` §7 / `DGX_GUIDE_nanovlm.md` §6 both
+require these to come from a real timing measurement on *this* cluster,
+*this* repo's actual code, not inherited or guessed. The `dgx/*.sbatch`
+scripts in this repo carry placeholder values — filling these in requires
+actually running on `dgx1`, which this build session cannot do. Do not
+raise these past the placeholder without running `dgx/test_ollama_gpu.sbatch`
+first; do not trust the placeholder for a real submission either.
+
+**Partition is `longq` everywhere, not `mediumq`/`shortq` as
+`DGX_GUIDE_nanovlm.md` §0 lists them.** Both `mediumq` (on `train.sbatch`/
+`evaluate.sbatch`) and `shortq` (on `test_ollama_gpu.sbatch`) failed with
+`sbatch: error: Batch job submission failed: Invalid qos specification`
+for this account (cs26d002) when actually submitted — even though the
+guide lists all three as available. `longq` is the only partition with
+actual confirmed submission history for this account (matching this
+project's memory of the same error occurring for `mediumq` in the prior
+project on this cluster). Every `dgx/*.sbatch` script uses `--partition=longq`
+now, regardless of how short the job's own `--time` is — a short job on
+`longq` is fine, `--time` just caps how long *that job* can run, not how
+long it has to. If `sacctmgr show assoc where user=cs26d002
+format=account,partition,qos` ever confirms `shortq`/`mediumq` are
+actually granted, they can be switched back; until then, don't guess
+partition names from the guide doc without checking submission actually
+succeeds.
 
 ---
 

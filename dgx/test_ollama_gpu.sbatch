@@ -1,16 +1,26 @@
 #!/bin/bash
 #SBATCH --job-name=test-gpu-llm
-#SBATCH --partition=shortq
+#SBATCH --partition=longq
 #SBATCH --time=00:10:00
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=16G
 #SBATCH --output=logs/nanovlm-test_ollama_gpu-%j.out
 #SBATCH --error=logs/nanovlm-test_ollama_gpu-%j.err
 #
-# shortq diagnostic — per DGX_GUIDE_nanovlm.md §6, run this fresh once and
-# confirm llama3:8b loads via the private GPU-capable server BEFORE
-# trusting the real 28K generate job to use it. Full GPU, not a MIG slice
-# (MIG slices are confirmed to hang Ollama-backed jobs — DGX_GUIDE_nanovlm.md §0).
+# Quick diagnostic (--time=00:10:00 keeps it short regardless of which
+# partition it runs on) — run this fresh once and confirm llama3:8b loads
+# via the private GPU-capable server BEFORE trusting the real 28K generate
+# job to use it. Full GPU, not a MIG slice (MIG slices are confirmed to
+# hang Ollama-backed jobs — DGX_GUIDE_nanovlm.md §0).
+#
+# Partition is longq, not shortq: shortq submission failed with "Invalid
+# qos specification" for this account, same class of error mediumq hit
+# for train/evaluate (dgx/train.sbatch, dgx/evaluate.sbatch) — longq is
+# the only partition with actual confirmed history of working for
+# cs26d002 on this cluster, despite DGX_GUIDE_nanovlm.md §0 listing all
+# three as available. Run `sacctmgr show assoc where user=cs26d002
+# format=account,partition,qos` to get the authoritative list rather than
+# guessing partition names again — see DESIGN_DECISIONS.md §9.
 
 set -euo pipefail
 # Repo location isn't hardcoded — submit this with `sbatch dgx/test_ollama_gpu.sbatch`
