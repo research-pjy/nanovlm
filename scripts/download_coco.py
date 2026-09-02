@@ -4,8 +4,12 @@ once, per DGX_GUIDE_nanovlm.md §1.
 
 Downloads only the specific train2017/val2017 images this experiment
 needs (roughly 2-3GB for 28,100 images) instead of the full ~18GB
-train2017 zip. Skip-existing, so re-running after an interruption picks
-up where it left off.
+train2017 zip. Downloads concurrently (--workers, default 16 — network
+round-trip latency, not bandwidth, is the bottleneck for many small
+files, so this matters a lot: a single-threaded version of this took
+~1.5 days to get ~9,500/28,100 images in practice). Skip-existing, so
+re-running after an interruption or a lower/higher --workers value picks
+up exactly where it left off.
 
 Selection (DESIGN_DECISIONS.md §6/§7, EXPERIMENT_GUIDE_encoder_ambiguity.md
 §1):
@@ -28,6 +32,7 @@ Example (matches DGX_GUIDE_nanovlm.md §1):
         --splits train2017 val2017 \\
         --num-images 28000 \\
         --seed 42 \\
+        --workers 16 \\
         --annotations-dir /scratch/cs26d002/datasets/coco/annotations \\
         --images-dir /scratch/cs26d002/datasets/coco/images
 """
@@ -36,10 +41,12 @@ import argparse
 import json
 import random
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 COCO_ANNOTATIONS_ZIP_URL = "http://images.cocodataset.org/annotations/annotations_trainval2017.zip"
@@ -123,40 +130,68 @@ def make_selection(
     return {"held_out": held_out, "train": train_ids, "val": val_ids}
 
 
+def _fetch_one(image_id: int, meta: dict, images_dir: Path) -> str:
+    """Returns 'downloaded', 'skipped', or 'failed'. Runs in a worker
+    thread — pure I/O (urlretrieve), no shared mutable state touched here.
+    """
+    split_dir = images_dir / meta["split"]
+    split_dir.mkdir(parents=True, exist_ok=True)
+    dest = split_dir / meta["file_name"]
+
+    if dest.exists() and dest.stat().st_size > 0:
+        return "skipped"
+
+    url = COCO_IMAGE_URL_TEMPLATE.format(split=meta["split"], file_name=meta["file_name"])
+    # unique temp suffix per image_id so concurrent workers never collide
+    # on the same .part path
+    tmp_dest = dest.with_suffix(dest.suffix + f".{image_id}.part")
+    for attempt in range(3):
+        try:
+            urllib.request.urlretrieve(url, tmp_dest)
+            tmp_dest.rename(dest)
+            return "downloaded"
+        except (urllib.error.URLError, OSError) as e:
+            if attempt == 2:
+                print(f"[download] FAILED {url}: {e}", file=sys.stderr)
+                return "failed"
+            time.sleep(1.5 * (attempt + 1))
+    return "failed"  # unreachable, keeps type-checkers happy
+
+
 def download_selected(
-    pool: dict[int, dict], selection: dict[str, list[int]], images_dir: Path
+    pool: dict[int, dict], selection: dict[str, list[int]], images_dir: Path, workers: int = 16
 ) -> tuple[int, int, int]:
+    """Concurrent, skip-existing, resumable download. A single-threaded
+    sequential version of this (one urlretrieve at a time) is what made
+    the first real run of this script take ~1.5 days for ~9,500/28,100
+    images — network round-trip latency dominates, not bandwidth, so
+    downloading many images in parallel (default 16 worker threads, matching
+    the concurrency level that got a full run down to ~30 minutes) fixes
+    the actual bottleneck. Safe to interrupt and resume: already-downloaded
+    files are skipped on the next run either way.
+    """
     all_ids = selection["held_out"] + selection["train"] + selection["val"]
-    downloaded, skipped, failed = 0, 0, 0
+    counts = {"downloaded": 0, "skipped": 0, "failed": 0}
+    lock = threading.Lock()
+    completed = 0
 
-    for i, image_id in enumerate(all_ids, 1):
-        meta = pool[image_id]
-        split_dir = images_dir / meta["split"]
-        split_dir.mkdir(parents=True, exist_ok=True)
-        dest = split_dir / meta["file_name"]
+    with ThreadPoolExecutor(max_workers=workers) as pool_executor:
+        futures = {
+            pool_executor.submit(_fetch_one, image_id, pool[image_id], images_dir): image_id
+            for image_id in all_ids
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            with lock:
+                counts[result] += 1
+                completed += 1
+                if completed % 500 == 0 or completed == len(all_ids):
+                    print(
+                        f"[download] {completed}/{len(all_ids)} "
+                        f"(downloaded={counts['downloaded']} skipped={counts['skipped']} failed={counts['failed']})"
+                    )
 
-        if dest.exists() and dest.stat().st_size > 0:
-            skipped += 1
-        else:
-            url = COCO_IMAGE_URL_TEMPLATE.format(split=meta["split"], file_name=meta["file_name"])
-            tmp_dest = dest.with_suffix(dest.suffix + ".part")
-            for attempt in range(3):
-                try:
-                    urllib.request.urlretrieve(url, tmp_dest)
-                    tmp_dest.rename(dest)
-                    downloaded += 1
-                    break
-                except (urllib.error.URLError, OSError) as e:
-                    if attempt == 2:
-                        print(f"[download] FAILED {url}: {e}", file=sys.stderr)
-                        failed += 1
-                    else:
-                        time.sleep(1.5 * (attempt + 1))
-
-        if i % 500 == 0 or i == len(all_ids):
-            print(f"[download] {i}/{len(all_ids)} (downloaded={downloaded} skipped={skipped} failed={failed})")
-
-    return downloaded, skipped, failed
+    return counts["downloaded"], counts["skipped"], counts["failed"]
 
 
 def main():
@@ -168,6 +203,9 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--annotations-dir", required=True)
     parser.add_argument("--images-dir", required=True)
+    parser.add_argument(
+        "--workers", type=int, default=16, help="concurrent download threads (default 16)"
+    )
     parser.add_argument(
         "--selection-out",
         default=None,
@@ -206,7 +244,7 @@ def main():
         json.dump(manifest, f)
     print(f"[selection] wrote manifest to {selection_out}")
 
-    downloaded, skipped, failed = download_selected(pool, selection, images_dir)
+    downloaded, skipped, failed = download_selected(pool, selection, images_dir, workers=args.workers)
     total = downloaded + skipped
     expected = args.num_held_out + args.num_images
     print(f"[done] {total}/{expected} images on disk (downloaded={downloaded} skipped_existing={skipped} failed={failed})")
