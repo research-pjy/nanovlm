@@ -53,7 +53,20 @@ project code):**
   on the **login node** (has internet + needs your SSH key added there),
   then `git pull` for every update — no more manual zip/scp/unzip.
 - **New project folder name**: `nanovlm`, not `microvlm-claude-version`.
-- **Repo path on DGX**: `/scratch/cs26d002/repos/nanovlm`.
+- **Repo path on DGX**: `/home1/cs26d002/repos/nanovlm` — **not** `/scratch`.
+  Originally cloned to `/scratch/cs26d002/repos/nanovlm`; moved to `/home1`
+  after a `git clone` there failed with a libffi symbol error
+  (`undefined symbol: ffi_type_pointer`) — most likely the conda env's
+  bundled libffi shadowing the system one via `LD_LIBRARY_PATH` when the
+  env was active in the shell (deactivate conda before git operations if
+  this recurs, on either filesystem — it's not actually `/scratch`-specific).
+  `/home1` is also just the safer place for the only copy of your git
+  history regardless: `/scratch` on HPC clusters is commonly
+  purged/unbackuped scratch space, not somewhere you want source code
+  living long-term. None of the `dgx/*.sbatch` scripts hardcode this path
+  — they all `cd "$SLURM_SUBMIT_DIR"` (set by Slurm to wherever `sbatch`
+  was invoked from), so submit every job from the repo root and it works
+  regardless of which filesystem the repo lives on.
 - **`.gitignore`** excludes `data/`, `checkpoints/`, `results/`, `logs/`
   from commit 1 — same reason the old zips excluded them (generated
   output shouldn't round-trip through version control or get clobbered
@@ -71,8 +84,8 @@ project code):**
 
 ```bash
 # On the DGX LOGIN node (has internet)
-mkdir -p /scratch/cs26d002/repos
-cd /scratch/cs26d002/repos
+mkdir -p /home1/cs26d002/repos
+cd /home1/cs26d002/repos
 git clone git@github.com:research-pjy/nanovlm.git
 cd nanovlm
 ```
@@ -80,17 +93,20 @@ cd nanovlm
 If SSH auth to GitHub isn't already set up on the login node, either add
 a new deploy key/personal SSH key there, or clone via HTTPS with a
 personal access token instead — either works, pick whichever you already
-have credentials for.
+have credentials for. If `git clone`/`git pull` fails with a libffi
+symbol lookup error (`undefined symbol: ffi_type_pointer`), it's very
+likely the active conda env's bundled libffi shadowing the system one —
+run `conda deactivate` (or open a fresh shell) before the git command.
 
 Every future code update, on the login node:
 
 ```bash
-cd /scratch/cs26d002/repos/nanovlm
+cd /home1/cs26d002/repos/nanovlm
 git pull
 ```
 
 `dgx1` (compute) never needs its own clone or its own internet access —
-it just reads whatever's already in `/scratch/cs26d002/repos/nanovlm`
+it just reads whatever's already in `/home1/cs26d002/repos/nanovlm`
 after the login node pulls.
 
 ### Conda env (reused, not rebuilt)
@@ -146,23 +162,32 @@ to the slow CPU one with a loud warning if it's missing.
 ## 2. Storage layout
 
 ```
-/scratch/cs26d002/
+/home1/cs26d002/
   repos/nanovlm/                    <- this project (git-managed)
-    data/processed/nanovlm_28k/     <- generated JSONL (gitignored)
-    checkpoints/                     <- trained models (gitignored)
-    results/                         <- eval JSON (gitignored)
-    logs/                            <- sbatch stdout/stderr (gitignored)
+    data/processed/nanovlm_28k/     <- generated JSONL (gitignored, small — MBs not GBs)
+    checkpoints/                     <- trained models (gitignored, ~6 checkpoints, small)
+    results/                         <- eval JSON (gitignored, small)
+    logs/                            <- sbatch stdout/stderr (gitignored, small)
     dgx/                             <- sbatch scripts
+
+/scratch/cs26d002/
   datasets/coco/                    <- shared, outside the project, reused
-                                        across any future project
+                                        across any future project — the one
+                                        genuinely large thing (2-3GB of JPEGs)
   envs/dgx-research-test/           <- reused conda env
   software/ollama-gpu/              <- reused GPU-capable Ollama build
 ```
 
-Rule of thumb unchanged from before: if regenerating it means
-re-downloading from the internet, it lives in `datasets/`; if
-regenerating it means re-running this project's own scripts, it lives
-inside the project folder.
+Rule of thumb, updated: if regenerating it means re-downloading from the
+internet OR it's genuinely bulk (multi-GB — images, conda envs, software
+builds), it lives on `/scratch`; if regenerating it means re-running this
+project's own scripts and it stays small (this project's checkpoints/
+results/logs/generated-JSONL all land in the tens-of-MB range, not GBs —
+5M-25M-parameter models, ~28K short text records, six small eval JSONs),
+it lives inside the project folder on `/home1` alongside the code. If any
+of those ever grow unexpectedly large, move just that one folder to
+`/scratch/cs26d002/outputs/nanovlm/` and repoint the relevant script flag
+(`--checkpoints-dir`/`--data-dir`/etc.) — nothing else needs to change.
 
 ---
 
@@ -214,7 +239,7 @@ architecture before reviewing anything).
 ### Stage 1 — generate
 
 ```bash
-cd /scratch/cs26d002/repos/nanovlm
+cd /home1/cs26d002/repos/nanovlm
 mkdir -p logs
 sbatch dgx/generate.sbatch
 squeue -u $USER
@@ -233,7 +258,7 @@ flag that skips already-written records).
 ### Stages 2–5 — train / evaluate, one size at a time
 
 ```bash
-cd /scratch/cs26d002/repos/nanovlm
+cd /home1/cs26d002/repos/nanovlm
 
 # Example: train conv_on_patches, base size
 sbatch --export=ALL,SIZE=base,STRATEGY=conv_on_patches dgx/train.sbatch

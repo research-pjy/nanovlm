@@ -13,7 +13,9 @@
 # (MIG slices are confirmed to hang Ollama-backed jobs — DGX_GUIDE_nanovlm.md §0).
 
 set -euo pipefail
-cd /scratch/cs26d002/repos/nanovlm
+# Repo location isn't hardcoded — submit this with `sbatch dgx/test_ollama_gpu.sbatch`
+# from the repo root and Slurm sets SLURM_SUBMIT_DIR to that directory.
+cd "${SLURM_SUBMIT_DIR:?SLURM_SUBMIT_DIR not set — submit with sbatch from the repo root}"
 mkdir -p logs
 source dgx/common.sh
 

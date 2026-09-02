@@ -4,7 +4,15 @@
 # DGX_GUIDE_nanovlm.md §0/§1.
 set -euo pipefail
 
-REPO_DIR="/scratch/cs26d002/repos/nanovlm"
+# No hardcoded repo path here on purpose — the repo lives at
+# /home1/cs26d002/repos/nanovlm (moved off /scratch, see DGX_GUIDE_nanovlm.md
+# §0/§1: /scratch is bulk/purge-risk storage, not where you want your only
+# copy of git history, and a `git clone`/`git pull` run with the conda env
+# active has been observed to fail on this cluster with a libffi symbol
+# error regardless of target directory — deactivate conda before git
+# operations if that recurs). Every dgx/*.sbatch script instead does
+# `cd "$SLURM_SUBMIT_DIR"` (Slurm sets this to wherever `sbatch` was
+# invoked from), so nothing here needs to know or care where the repo is.
 OLLAMA_GPU_BIN="/scratch/cs26d002/software/ollama-gpu/bin/ollama"
 OLLAMA_MODELS_DIR="/usr/share/ollama/.ollama/models"  # shared, world-readable store
 OLLAMA_PRIVATE_PORT=11435  # never 11434 — that's the ambient CPU-bound daemon

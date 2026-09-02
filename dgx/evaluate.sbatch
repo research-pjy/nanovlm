@@ -23,7 +23,9 @@
 # --mem/--time above are UNVALIDATED placeholders — DESIGN_DECISIONS.md §9.
 
 set -euo pipefail
-cd /scratch/cs26d002/repos/nanovlm
+# Repo location isn't hardcoded — submit this with `sbatch dgx/evaluate.sbatch`
+# from the repo root and Slurm sets SLURM_SUBMIT_DIR to that directory.
+cd "${SLURM_SUBMIT_DIR:?SLURM_SUBMIT_DIR not set — submit with sbatch from the repo root}"
 mkdir -p logs
 source dgx/common.sh
 

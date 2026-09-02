@@ -28,7 +28,9 @@
 # used here as the safe default, same as generate/evaluate.
 
 set -euo pipefail
-cd /scratch/cs26d002/repos/nanovlm
+# Repo location isn't hardcoded — submit this with `sbatch dgx/train.sbatch`
+# from the repo root and Slurm sets SLURM_SUBMIT_DIR to that directory.
+cd "${SLURM_SUBMIT_DIR:?SLURM_SUBMIT_DIR not set — submit with sbatch from the repo root}"
 mkdir -p logs
 source dgx/common.sh
 activate_env
