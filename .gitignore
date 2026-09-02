@@ -1,9 +1,14 @@
 # Generated data / outputs — never round-trip through version control,
 # never get clobbered by a pull (DGX_GUIDE_nanovlm.md §0/§2).
-data/
-checkpoints/
-results/
-logs/
+# Leading "/" anchors these to the repo root ONLY — an unanchored "data/"
+# would also match nanovlm/data/ (the model library's data subpackage,
+# a real tracked source directory that happens to share the name) and
+# silently exclude it from every commit. That bug already happened once;
+# these are anchored specifically so it can't happen again.
+/data/
+/checkpoints/
+/results/
+/logs/
 
 # Python
 __pycache__/
