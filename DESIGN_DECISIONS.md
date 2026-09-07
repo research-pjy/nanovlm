@@ -214,6 +214,28 @@ early or `large` still improving at epoch 20 in the logs).
 
 Learning rate: `1e-3` (paper §2.3, fixed across all sizes).
 
+**Update — first `conv_on_patches` results in hand for all three sizes.**
+Actual behavior was the opposite of the "large still improving at epoch
+20" case this section flagged as worth watching for: `large` instead
+*overfits* within the 20-epoch budget — `val_loss` bottoms at epoch 7
+(2.4556) and rises every epoch after, ending 2.6248 at epoch 20, while
+`train_loss` keeps falling the whole time (→1.7406). `base` shows a much
+milder version (val bottoms epoch 12-13, drifts up slightly by 20).
+`mini` barely shows it. `scripts/train.py` only ever saves the
+final-epoch checkpoint, never a best-val one, so the `large` checkpoint
+on disk is meaningfully worse than that architecture's own best point.
+
+**Decision: keep the final-epoch checkpoint for every size, do not add
+best-val checkpointing.** No retraining, no `train.py` change. This
+follows directly from this section's own stated goal — same epoch/batch
+budget applied identically regardless of outcome, so the strategy
+comparison (`conv_on_patches` vs `conv_on_image`) is never confounded by
+a training-protocol difference — and it generalizes cleanly:
+`conv_on_image`'s `large` run gets the exact same fixed-budget treatment,
+whatever it does to that architecture's own overfitting curve. `large`'s
+late-epoch overfitting is now a documented, reportable finding of the
+study rather than something corrected for after the fact.
+
 ---
 
 ## 9. `--mem` / `--time` sbatch values, and which partition is actually usable
