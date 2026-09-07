@@ -336,3 +336,33 @@ No deviation from `DGX_GUIDE_nanovlm.md` §2 and §5 — reused as specified:
 `results/nanovlm_<size>_<strategy>_eval.json`,
 `logs/nanovlm-<stage>-<jobid>.out/.err`, generic Slurm job names (not
 containing "nanovlm").
+
+---
+
+## 11. Results log (running)
+
+Raw numbers as each `evaluate.sbatch` run completes, so the final
+`compare_results.py` step and the paper's conclusion aren't the first
+place these are written down. Full detail lives in
+`results/nanovlm_<size>_<strategy>_eval.json`; this is just a running
+summary table.
+
+| size  | strategy         | grammar | creativity | consistency | meaningfulness | plot | avg_total | rouge1 |
+|-------|------------------|---------|------------|-------------|-----------------|------|-----------|--------|
+| mini  | conv_on_patches  | 2.91    | 2.91       | 4.34        | 4.54            | 3.81 | 18.51     | 0.5979 |
+| base  | conv_on_patches  | 3.07    | 3.12       | 4.28        | 4.81            | 3.99 | 19.27     | 0.6029 |
+| large | conv_on_patches  | 2.64    | 2.76       | 4.17        | 4.53            | 3.63 | 17.73     | 0.6034 |
+| mini  | conv_on_image    | —       | —          | —           | —               | —    | —         | —      |
+| base  | conv_on_image    | —       | —          | —           | —               | —    | —         | —      |
+| large | conv_on_image    | —       | —          | —           | —               | —    | —         | —      |
+
+`conv_on_patches` observation: `base` scores highest on `avg_total`
+(19.27), not `large` (17.73, the lowest of the three) — consistent with
+§8's overfitting finding: `large`'s held-out judge quality actually
+degrades relative to `base` despite having ~1.7x the parameters, which
+tracks with its `val_loss` having risen from epoch 7 onward at the
+checkpoint actually being evaluated (`final.pt`, epoch 20). `mini` sits
+between the two on `avg_total` despite being smallest, so this isn't a
+clean monotonic size effect — more evidence for treating `large`'s result
+as budget-limited (§8) rather than reading `avg_total` as tracking
+parameter count directly.
