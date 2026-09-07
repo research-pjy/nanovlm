@@ -227,6 +227,25 @@ actually running on `dgx1`, which this build session cannot do. Do not
 raise these past the placeholder without running `dgx/test_ollama_gpu.sbatch`
 first; do not trust the placeholder for a real submission either.
 
+**Update — first real `train.sbatch` run (`SIZE=mini,STRATEGY=conv_on_patches`,
+job 46413) completed successfully, giving real numbers for the first
+time.** 20/20 epochs, ~130.6s/epoch, ~44 minutes total wall time —
+loss went 3.94→2.37 (train) and 3.25→2.53 (val), a normal-looking
+monotonic decrease with no divergence or NaNs. `--time=11:30:00` is
+enormously oversized for `mini` (44min actual vs 11.5h budgeted); left
+as-is rather than tightened, since the margin costs nothing (this
+account's jobs are already serialized on `dgx1` one-at-a-time, so a
+generous `--time` doesn't block other work) and `base`/`large` are
+untimed. `--mem=16G` was sufficient — no OOM, no `AssocGrpMemLimit`
+block on this submission. Per-epoch time here is realistically
+dominated by the image-loading/decode side of the `DataLoader`
+(`num_workers=4`), not model compute — `mini`'s 5.7M total params is
+tiny for an A100 — so `base` (n_blks=3, n_embd=128) and `large`
+(n_blks=5, n_embd=192, Table 1) are expected to land in a similar
+per-epoch ballpark rather than scaling badly, but that is still an
+expectation, not yet a measurement: confirm with their own first runs
+before assuming it holds.
+
 **Partition is `longq` everywhere, not `mediumq`/`shortq` as
 `DGX_GUIDE_nanovlm.md` §0 lists them — and `--qos=` must be set
 explicitly, `--partition` alone is not enough.** `mediumq`, then `shortq`,
