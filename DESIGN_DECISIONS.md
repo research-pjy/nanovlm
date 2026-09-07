@@ -273,6 +273,18 @@ won't fix it — confirm the account's actual cap first with
 `sacctmgr show assoc where account=student format=account,user,grptres,maxtresperjob`
 rather than guessing another number.
 
+**`train.sbatch` hit the identical `AssocGrpMemLimit` block at `--mem=32G`
+on its very first real submission (`SIZE=mini,STRATEGY=conv_on_patches`,
+job 46412).** Lowered to `--mem=16G`, same fix as `generate.sbatch` above.
+This one is a slightly different workload (real PyTorch training via
+`scripts/train.py`, not an Ollama server), but the model and optimizer
+state live on the GPU, not host RAM — host RAM here is only the
+DataLoader pipeline (`--num-workers 4`) and Python/CUDA overhead — so 16G
+should still be generous for all three sizes. If `SIZE=large` specifically
+OOMs on host RAM (check `sacct -j <jobid> --format=JobID,MaxRSS,State`
+after it finishes or fails), raise `--mem` for that one job rather than
+reflexively raising it for all three.
+
 ---
 
 ## 10. Storage / naming

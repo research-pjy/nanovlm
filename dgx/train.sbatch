@@ -4,7 +4,7 @@
 #SBATCH --qos=longq
 #SBATCH --time=11:30:00
 #SBATCH --gres=gpu:a100:1
-#SBATCH --mem=32G
+#SBATCH --mem=16G
 #SBATCH --output=logs/nanovlm-train-%j.out
 #SBATCH --error=logs/nanovlm-train-%j.err
 #
@@ -20,6 +20,18 @@
 # then shortq, then longq-with-no-qos) failed with "Invalid qos
 # specification" for the same underlying reason. --time=11:30:00 is well
 # inside longq's 48h cap either way.
+#
+# --mem=16G, down from an earlier 32G placeholder — same AssocGrpMemLimit
+# block hit and fixed the same way on generate.sbatch (DESIGN_DECISIONS.md
+# §9): the "student" account's memory quota is shared across every user
+# on it, not per-job, and 32G left this job PD indefinitely. The actual
+# host-RAM footprint here is the DataLoader pipeline (num_workers=4,
+# batch_size from FIXED_HPARAMS) plus Python/CUDA overhead — the model
+# and optimizer state live on the GPU, not host RAM — so 16G is generous
+# for mini/base and should still be ample for large; if `large` ever OOMs
+# on host RAM specifically (check with `sacct -j <jobid>
+# --format=JobID,MaxRSS,State`), raise this one job's --mem, don't lower
+# the others pre-emptively.
 #
 # --mem/--time above are UNVALIDATED placeholders — DESIGN_DECISIONS.md §9,
 # size them from a real shortq timing on this repo's actual training code
