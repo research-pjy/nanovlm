@@ -236,6 +236,20 @@ whatever it does to that architecture's own overfitting curve. `large`'s
 late-epoch overfitting is now a documented, reportable finding of the
 study rather than something corrected for after the fact.
 
+**Update — `conv_on_image` trained for all three sizes.** Same overfitting
+pattern as `conv_on_patches`: `large` again rises in `val_loss` from
+epoch 7 (2.4648) onward while `train_loss` keeps falling, applying the
+same keep-final.pt policy above. One additional wrinkle unique to this
+run: `large/conv_on_image` had a one-epoch `val_loss` spike at epoch 12
+(3.0185, versus ~2.47-2.49 the epochs immediately before and 2.5170 the
+epoch right after) — a transient blip, not a sustained divergence
+(training continued normally afterward, following the same rising trend
+as before the spike). Most likely an unusually hard/large batch rather
+than a real instability, since it self-corrected in one epoch; noted here
+in case it recurs on a future run and starts looking like a pattern
+rather than noise. `mini`/`base` conv_on_image show the same mild-to-none
+overfitting shape as their conv_on_patches counterparts.
+
 ---
 
 ## 9. `--mem` / `--time` sbatch values, and which partition is actually usable
