@@ -366,9 +366,14 @@ summary table.
 | mini  | conv_on_patches  | 2.91    | 2.91       | 4.34        | 4.54            | 3.81 | 18.51     | 0.5979 |
 | base  | conv_on_patches  | 3.07    | 3.12       | 4.28        | 4.81            | 3.99 | 19.27     | 0.6029 |
 | large | conv_on_patches  | 2.64    | 2.76       | 4.17        | 4.53            | 3.63 | 17.73     | 0.6034 |
-| mini  | conv_on_image    | —       | —          | —           | —               | —    | —         | —      |
-| base  | conv_on_image    | —       | —          | —           | —               | —    | —         | —      |
-| large | conv_on_image    | —       | —          | —           | —               | —    | —         | —      |
+| mini  | conv_on_image    | 2.70    | 2.84       | 3.83        | 4.51            | 4.08 | 17.96     | 0.6046 |
+| base  | conv_on_image    | 2.87    | 2.79       | 4.10        | 4.98            | 4.06 | 18.80     | 0.6065 |
+| large | conv_on_image    | 2.74    | 2.98       | 4.01        | 4.60            | 3.65 | 17.98     | 0.6165 |
+
+All 6 runs (both strategies x 3 sizes) are complete as of this update —
+this table now has every number `experiments/encoder_ambiguity/
+compare_results.py` needs; its own per-size runs are the authoritative
+comparison, this is just a preview.
 
 `conv_on_patches` observation: `base` scores highest on `avg_total`
 (19.27), not `large` (17.73, the lowest of the three) — consistent with
@@ -380,3 +385,15 @@ between the two on `avg_total` despite being smallest, so this isn't a
 clean monotonic size effect — more evidence for treating `large`'s result
 as budget-limited (§8) rather than reading `avg_total` as tracking
 parameter count directly.
+
+Cross-strategy preview (`conv_on_patches` `avg_total` minus
+`conv_on_image` `avg_total`, per size): `mini` +0.55, `base` +0.47,
+`large` −0.25. `conv_on_patches` wins at `mini` and `base`;
+`conv_on_image` edges ahead at `large`, though by less than either
+`mini`/`base` gap and inside the range that could plausibly be single-
+seed, single-judge-model noise (`EXPERIMENT_GUIDE_encoder_ambiguity.md`
+§6's own caveat) rather than a real crossover. Worth stating as "the
+effect direction is not fully consistent across sizes" in the writeup
+rather than as a confirmed size-dependent reversal — `compare_results.py`
+is the tool for the real per-size read, this is only a heads-up on what
+it's likely to show.
